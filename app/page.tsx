@@ -18,6 +18,8 @@ export default function Home() {
   // New States
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalDuration, setNewGoalDuration] = useState("60");
+  const [newGoalDesc, setNewGoalDesc] = useState("");
+  const [newGoalParentId, setNewGoalParentId] = useState("");
   const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly">("daily");
   const [showFriend, setShowFriend] = useState(true);
   
@@ -91,12 +93,18 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [timerActive, timeLeft, activeGoal]);
 
+  // Reset parent selection when changing tabs
+  useEffect(() => {
+    setNewGoalParentId("");
+  }, [activeTab]);
+
   const toggleTimer = () => {
     if (timeLeft === 0) setTimeLeft((activeGoal?.duration_minutes || 60) * 60);
     setTimerActive(!timerActive);
   };
 
   const startGoalTimer = (goal: any) => {
+    if (goal.tier !== 'daily') return;
     setActiveGoal(goal);
     setTimeLeft((goal.duration_minutes || 60) * 60);
     setTimerActive(true);
@@ -116,24 +124,37 @@ export default function Home() {
   const handleAddGoal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !newGoalTitle.trim()) return;
+    if ((activeTab === 'weekly' || activeTab === 'daily') && !newGoalParentId) return;
     
-    let duration = parseInt(newGoalDuration) || 60;
-    if (duration < 20) duration = 20;
-    if (duration > 180) duration = 180;
-
-    addDoc(collection(db, 'goals'), {
+    const payload: any = {
       user_id: currentUser,
       title: newGoalTitle.trim(),
-      duration_minutes: duration,
       tier: activeTab,
       priority: 'P2',
       is_completed: false,
       created_at: new Date().toISOString()
-    }).catch(err => {
+    };
+
+    if (activeTab === 'daily') {
+      let duration = parseInt(newGoalDuration) || 60;
+      if (duration < 20) duration = 20;
+      if (duration > 180) duration = 180;
+      payload.duration_minutes = duration;
+      payload.parent_id = newGoalParentId;
+    } else if (activeTab === 'weekly') {
+      payload.description = newGoalDesc.trim();
+      payload.parent_id = newGoalParentId;
+    } else if (activeTab === 'monthly') {
+      payload.description = newGoalDesc.trim();
+    }
+
+    addDoc(collection(db, 'goals'), payload).catch(err => {
       console.warn("Error adding goal.", err)
     });
     
     setNewGoalTitle("");
+    setNewGoalDesc("");
+    setNewGoalParentId("");
   };
 
   const toggleGoal = (id: string, currentStatus: boolean) => {
@@ -158,6 +179,12 @@ export default function Home() {
   const filteredMyGoals = myGoals.filter(g => (g.tier || 'daily') === activeTab);
   const filteredFriendGoals = friendGoals.filter(g => (g.tier || 'daily') === activeTab);
 
+  const availableParents = activeTab === 'weekly' 
+    ? myGoals.filter(g => (g.tier || 'daily') === 'monthly')
+    : activeTab === 'daily' 
+    ? myGoals.filter(g => (g.tier || 'daily') === 'weekly')
+    : [];
+
   const calculatePoints = (goals: any[]) => goals.filter(g => g.is_completed).reduce((acc, g) => {
     if (g.priority === 'P1') return acc + 30;
     if (g.priority === 'P2') return acc + 20;
@@ -170,6 +197,8 @@ export default function Home() {
 
   const friendCompletedCount = friendGoals.filter(g => g.is_completed && (g.tier || 'daily') === 'daily').length;
   const friendStatusText = friendCompletedCount > 0 ? `Crushed ${friendCompletedCount} daily goals` : "Offline / Resting";
+
+  const isFormValid = newGoalTitle.trim() && (activeTab === 'monthly' || newGoalParentId);
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-zinc-100 overflow-hidden font-sans">
@@ -240,7 +269,7 @@ export default function Home() {
                     : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/20"
                 )}
               >
-                {!activeGoal ? <><Clock className="w-4 h-4" /> Select an objective to begin</> : timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
+                {!activeGoal ? <><Clock className="w-4 h-4" /> Select a daily objective to begin</> : timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
               </button>
               {(!timerActive && timeLeft < (activeGoal?.duration_minutes || 60) * 60) && (
                 <button 
@@ -268,40 +297,70 @@ export default function Home() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <form onSubmit={handleAddGoal} className="flex gap-2 mb-6">
+              <form onSubmit={handleAddGoal} className="flex flex-col gap-3 mb-6 bg-zinc-950/30 p-4 rounded-xl border border-zinc-900">
                 <input 
                   type="text" 
                   value={newGoalTitle}
                   onChange={(e) => setNewGoalTitle(e.target.value)}
-                  placeholder={`Add a new ${activeTab} objective...`}
-                  className="flex-1 bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  placeholder={`New ${activeTab} objective title...`}
+                  className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 />
-                <div className="relative w-24">
-                  <input 
-                    type="number" 
-                    value={newGoalDuration}
-                    onChange={(e) => setNewGoalDuration(e.target.value)}
-                    placeholder="60"
-                    min="20"
-                    max="180"
-                    className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+
+                {activeTab !== 'daily' && (
+                  <textarea 
+                    value={newGoalDesc}
+                    onChange={(e) => setNewGoalDesc(e.target.value)}
+                    placeholder="Detailed description..."
+                    className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all min-h-[80px] resize-none"
                   />
-                  <span className="absolute right-3 top-2.5 text-sm text-zinc-500 pointer-events-none">m</span>
+                )}
+
+                {activeTab !== 'monthly' && (
+                  <select 
+                    value={newGoalParentId}
+                    onChange={(e) => setNewGoalParentId(e.target.value)}
+                    className={cn("w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all", newGoalParentId ? "text-zinc-100" : "text-zinc-700")}
+                    required
+                  >
+                    <option value="" disabled>Link to a {activeTab === 'daily' ? 'weekly' : 'monthly'} objective (Required)</option>
+                    {availableParents.map(p => (
+                      <option key={p.id} value={p.id} className="text-zinc-300">{p.title}</option>
+                    ))}
+                  </select>
+                )}
+
+                <div className="flex justify-between items-center mt-1">
+                  {activeTab === 'daily' ? (
+                    <div className="relative w-28">
+                      <input 
+                        type="number" 
+                        value={newGoalDuration}
+                        onChange={(e) => setNewGoalDuration(e.target.value)}
+                        placeholder="60"
+                        min="20"
+                        max="180"
+                        className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                      />
+                      <span className="absolute right-3 top-2.5 text-sm text-zinc-500 pointer-events-none">mins</span>
+                    </div>
+                  ) : <div />}
+
+                  <button type="submit" disabled={!isFormValid} className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:bg-zinc-900 disabled:text-zinc-600 disabled:border-zinc-800 disabled:cursor-not-allowed border border-emerald-500/20 px-6 py-2.5 rounded-md flex items-center justify-center transition-colors text-sm font-medium gap-2">
+                    <Plus className="w-4 h-4" /> Add {activeTab}
+                  </button>
                 </div>
-                <button type="submit" disabled={!newGoalTitle.trim()} className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-500/20 px-4 rounded-md flex items-center justify-center transition-colors">
-                  <Plus className="w-4 h-4" />
-                </button>
               </form>
 
               {filteredMyGoals.length > 0 ? filteredMyGoals.map(goal => (
                 <ScheduleItem 
                   key={goal.id}
                   goal={goal}
+                  allGoals={myGoals}
                   onStart={() => startGoalTimer(goal)}
                   onToggle={() => toggleGoal(goal.id, goal.is_completed)}
                 />
               )) : (
-                <p className="text-zinc-700 text-sm text-center mt-10">No {activeTab} goals set yet.</p>
+                <p className="text-zinc-700 text-sm text-center mt-10">No {activeTab} objectives set yet.</p>
               )}
             </div>
           </div>
@@ -338,10 +397,11 @@ export default function Home() {
                   <ScheduleItem 
                     key={goal.id}
                     goal={goal}
+                    allGoals={friendGoals}
                     isFriend
                   />
                 )) : (
-                  <p className="text-zinc-800 text-sm text-center mt-10">Your friend hasn't added any {activeTab} goals.</p>
+                  <p className="text-zinc-800 text-sm text-center mt-10">Your friend hasn't added any {activeTab} objectives.</p>
                 )}
               </div>
             </div>
@@ -388,40 +448,60 @@ function UserScore({ user, name, time, points, streak, crown = false, align = "l
   );
 }
 
-function ScheduleItem({ goal, isFriend, onStart, onToggle }: { goal: any, isFriend?: boolean, onStart?: () => void, onToggle?: () => void }) {
+function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle }: { goal: any, allGoals: any[], isFriend?: boolean, onStart?: () => void, onToggle?: () => void }) {
   const isCompleted = goal.is_completed;
+  const parentGoal = goal.parent_id ? allGoals.find(g => g.id === goal.parent_id) : null;
+  const isDaily = (goal.tier || 'daily') === 'daily';
   
   return (
     <div 
       onClick={onToggle}
       className={cn(
-        "group flex items-center gap-4 p-4 rounded-xl border transition-all",
+        "group flex items-start gap-4 p-4 rounded-xl border transition-all",
         onToggle && "cursor-pointer",
         "bg-zinc-950/50 border-zinc-900/50 hover:border-zinc-800"
       )}
     >
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 mt-0.5">
         {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5 text-zinc-700 group-hover:text-zinc-500" />}
       </div>
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <h4 className={cn("text-sm font-medium", isCompleted ? "text-zinc-500 line-through" : "text-zinc-300")}>{goal.title}</h4>
-        {goal.duration_minutes && !isCompleted && <p className="text-xs text-zinc-600 mt-1 flex items-center gap-1"><Clock className="w-3 h-3" /> {goal.duration_minutes}m allocated</p>}
+        
+        {goal.description && (
+          <p className={cn("text-xs mt-1.5 line-clamp-2", isCompleted ? "text-zinc-600 line-through" : "text-zinc-500")}>
+            {goal.description}
+          </p>
+        )}
+        
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
+          {parentGoal && (
+            <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase tracking-widest truncate max-w-[150px] border", 
+              isCompleted ? "text-zinc-600 border-zinc-800 bg-zinc-900/50" : "text-emerald-500/70 border-emerald-500/20 bg-emerald-500/5"
+            )}>
+              ↳ {parentGoal.title}
+            </span>
+          )}
+          {goal.duration_minutes && !isCompleted && isDaily && (
+            <span className="text-xs text-zinc-600 flex items-center gap-1"><Clock className="w-3 h-3" /> {goal.duration_minutes}m</span>
+          )}
+        </div>
       </div>
       
-      {!isFriend && !isCompleted && onStart && (
+      {!isFriend && !isCompleted && onStart && isDaily && (
         <button 
           onClick={(e) => { e.stopPropagation(); onStart(); }}
-          className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 text-xs font-medium rounded hover:bg-emerald-500/20 flex items-center gap-1 transition-all"
+          className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 text-xs font-medium rounded hover:bg-emerald-500/20 flex items-center gap-1 transition-all flex-shrink-0"
         >
           <Play className="w-3 h-3" /> Start
         </button>
       )}
 
       {goal.priority && (
-        <div className={cn("text-xs font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-800", 
-          isCompleted ? "text-emerald-500/70" : 
-          goal.priority === "P1" ? "text-red-400" :
-          goal.priority === "P2" ? "text-amber-400" : "text-blue-400"
+        <div className={cn("text-xs font-mono px-2 py-1 rounded border flex-shrink-0", 
+          isCompleted ? "bg-zinc-900 border-zinc-800 text-emerald-500/40" : 
+          goal.priority === "P1" ? "bg-zinc-900 border-zinc-800 text-red-400" :
+          goal.priority === "P2" ? "bg-zinc-900 border-zinc-800 text-amber-400" : "bg-zinc-900 border-zinc-800 text-blue-400"
         )}>
           {goal.priority}
         </div>
