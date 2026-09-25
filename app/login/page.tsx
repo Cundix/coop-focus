@@ -25,15 +25,13 @@ export default function LoginPage() {
     // Save to local storage (Simple Auth)
     localStorage.setItem('coop_username', normalizedUsername)
 
-    // Save profile to Firestore
-    try {
-      await setDoc(doc(db, 'profiles', normalizedUsername), {
-        username: normalizedUsername,
-        created_at: new Date().toISOString()
-      }, { merge: true })
-    } catch (err) {
+    // Save profile to Firestore (fire and forget)
+    setDoc(doc(db, 'profiles', normalizedUsername), {
+      username: normalizedUsername,
+      created_at: new Date().toISOString()
+    }, { merge: true }).catch(err => {
       console.warn("Could not save to firestore, maybe rules aren't set yet?", err)
-    }
+    })
 
     router.push('/')
   }

@@ -75,25 +75,24 @@ export default function Home() {
     router.push('/login');
   };
 
-  const handleAddDemoGoal = async () => {
+  const handleAddDemoGoal = () => {
     if (!currentUser) return;
-    try {
-      await addDoc(collection(db, 'goals'), {
-        user_id: currentUser,
-        title: 'Focused Task ' + Math.floor(Math.random() * 1000),
-        priority: ['P1', 'P2', 'P3'][Math.floor(Math.random() * 3)],
-        is_completed: false,
-        created_at: new Date().toISOString()
-      });
-    } catch (err) {
-      alert("Error adding goal. Did you enable Firestore and update your Security Rules?")
-    }
+    
+    addDoc(collection(db, 'goals'), {
+      user_id: currentUser,
+      title: 'Focused Task ' + Math.floor(Math.random() * 1000),
+      priority: ['P1', 'P2', 'P3'][Math.floor(Math.random() * 3)],
+      is_completed: false,
+      created_at: new Date().toISOString()
+    }).catch(err => {
+      console.warn("Error adding goal. Did you enable Firestore?", err)
+    });
   };
 
-  const toggleGoal = async (id: string, currentStatus: boolean) => {
-    await updateDoc(doc(db, 'goals', id), {
+  const toggleGoal = (id: string, currentStatus: boolean) => {
+    updateDoc(doc(db, 'goals', id), {
       is_completed: !currentStatus
-    });
+    }).catch(err => console.warn(err));
   };
 
   if (loading) {
