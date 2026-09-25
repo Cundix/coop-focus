@@ -16,8 +16,8 @@ export default function LoginPage() {
     }
   }, [router])
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     if (!username.trim()) return
 
     const normalizedUsername = username.trim().toLowerCase()
