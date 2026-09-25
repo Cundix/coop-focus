@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%; /* Pure Black */
+    --foreground: 240 5% 96%; /* zinc-100 */
+    --card: 240 5% 4%; /* zinc-950 */
+    --card-foreground: 240 5% 96%;
+    --popover: 240 5% 4%;
+    --popover-foreground: 240 5% 96%;
+    --primary: 152 76% 36%; /* emerald-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 16%; /* zinc-800 */
+    --secondary-foreground: 240 5% 96%;
+    --muted: 240 5% 16%;
+    --muted-foreground: 240 5% 65%; /* zinc-400 */
+    --accent: 240 4% 16%;
+    --accent-foreground: 240 5% 96%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 240 5% 96%;
+    --border: 240 4% 16%; /* zinc-800 */
+    --input: 240 4% 16%;
+    --ring: 152 76% 36%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Scrollbar for OLED feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Subtle glow for active blocks */
+.glow-emerald {
+  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.4);
+}
