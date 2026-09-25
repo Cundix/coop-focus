@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from "@/lib/utils";
-import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2, EyeOff, Eye } from "lucide-react";
+import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2, EyeOff, Eye, SquareTerminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/config";
@@ -17,9 +17,11 @@ export default function Home() {
   
   // New States
   const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [newGoalDuration, setNewGoalDuration] = useState("25");
   const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly">("daily");
   const [showFriend, setShowFriend] = useState(true);
   
+  const [activeGoal, setActiveGoal] = useState<any>(null);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
 
@@ -82,14 +84,22 @@ export default function Home() {
       }, 1000);
     } else if (timeLeft === 0 && timerActive) {
       setTimerActive(false);
-      // Optional: Play a sound here
+      if (activeGoal) {
+        toggleGoal(activeGoal.id, false); // automatically mark complete!
+      }
     }
     return () => clearInterval(interval);
-  }, [timerActive, timeLeft]);
+  }, [timerActive, timeLeft, activeGoal]);
 
   const toggleTimer = () => {
-    if (timeLeft === 0) setTimeLeft(25 * 60);
+    if (timeLeft === 0) setTimeLeft((activeGoal?.duration_minutes || 25) * 60);
     setTimerActive(!timerActive);
+  };
+
+  const startGoalTimer = (goal: any) => {
+    setActiveGoal(goal);
+    setTimeLeft((goal.duration_minutes || 25) * 60);
+    setTimerActive(true);
   };
 
   const formatTime = (seconds: number) => {
@@ -110,6 +120,7 @@ export default function Home() {
     addDoc(collection(db, 'goals'), {
       user_id: currentUser,
       title: newGoalTitle.trim(),
+      duration_minutes: parseInt(newGoalDuration) || 25,
       tier: activeTab,
       priority: 'P2',
       is_completed: false,
@@ -184,7 +195,7 @@ export default function Home() {
             </h2>
             <div className="flex justify-between items-end">
               <div>
-                <h3 className="text-2xl font-semibold mb-1">Deep Work Phase</h3>
+                <h3 className="text-2xl font-semibold mb-1">{activeGoal ? activeGoal.title : "Deep Work Phase"}</h3>
                 <p className="text-zinc-500 text-sm flex items-center gap-2">
                   <Clock className="w-4 h-4" /> {timerActive ? "In progress..." : "Ready to start"}
                 </p>
@@ -204,9 +215,9 @@ export default function Home() {
               >
                 {timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
               </button>
-              {(!timerActive && timeLeft < 25 * 60) && (
+              {(!timerActive && timeLeft < (activeGoal?.duration_minutes || 25) * 60) && (
                 <button 
-                  onClick={() => setTimeLeft(25 * 60)}
+                  onClick={() => setTimeLeft((activeGoal?.duration_minutes || 25) * 60)}
                   className="px-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 rounded-md text-sm font-medium transition-colors"
                 >
                   Reset
@@ -235,9 +246,20 @@ export default function Home() {
                   type="text" 
                   value={newGoalTitle}
                   onChange={(e) => setNewGoalTitle(e.target.value)}
-                  placeholder={`Add a new ${activeTab} goal...`}
+                  placeholder={`Add a new ${activeTab} objective...`}
                   className="flex-1 bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 />
+                <div className="relative w-24">
+                  <input 
+                    type="number" 
+                    value={newGoalDuration}
+                    onChange={(e) => setNewGoalDuration(e.target.value)}
+                    placeholder="25"
+                    min="1"
+                    className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  />
+                  <span className="absolute right-3 top-2.5 text-sm text-zinc-500 pointer-events-none">m</span>
+                </div>
                 <button type="submit" disabled={!newGoalTitle.trim()} className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-500/20 px-4 rounded-md flex items-center justify-center transition-colors">
                   <Plus className="w-4 h-4" />
                 </button>
@@ -246,10 +268,9 @@ export default function Home() {
               {filteredMyGoals.length > 0 ? filteredMyGoals.map(goal => (
                 <ScheduleItem 
                   key={goal.id}
-                  title={goal.title} 
-                  status={goal.is_completed ? "completed" : "planned"} 
-                  points={goal.priority}
-                  onClick={() => toggleGoal(goal.id, goal.is_completed)}
+                  goal={goal}
+                  onStart={() => startGoalTimer(goal)}
+                  onToggle={() => toggleGoal(goal.id, goal.is_completed)}
                 />
               )) : (
                 <p className="text-zinc-700 text-sm text-center mt-10">No {activeTab} goals set yet.</p>
@@ -288,9 +309,8 @@ export default function Home() {
                 {filteredFriendGoals.length > 0 ? filteredFriendGoals.map(goal => (
                   <ScheduleItem 
                     key={goal.id}
-                    title={goal.title} 
-                    status={goal.is_completed ? "completed" : "planned"}
-                    points={goal.priority}
+                    goal={goal}
+                    isFriend
                   />
                 )) : (
                   <p className="text-zinc-800 text-sm text-center mt-10">Your friend hasn't added any {activeTab} goals.</p>
@@ -340,34 +360,42 @@ function UserScore({ user, name, time, points, streak, crown = false, align = "l
   );
 }
 
-function ScheduleItem({ title, status, points, onClick }: { title: string, status: "completed" | "active" | "planned" | "failed", points?: string, onClick?: () => void }) {
-  const isCompleted = status === "completed";
-  const isActive = status === "active";
+function ScheduleItem({ goal, isFriend, onStart, onToggle }: { goal: any, isFriend?: boolean, onStart?: () => void, onToggle?: () => void }) {
+  const isCompleted = goal.is_completed;
   
   return (
     <div 
-      onClick={onClick}
+      onClick={onToggle}
       className={cn(
         "group flex items-center gap-4 p-4 rounded-xl border transition-all",
-        onClick && "cursor-pointer",
-        isActive ? "bg-emerald-500/5 border-emerald-500/20 glow-emerald" : "bg-zinc-950/50 border-zinc-900/50 hover:border-zinc-800"
+        onToggle && "cursor-pointer",
+        "bg-zinc-950/50 border-zinc-900/50 hover:border-zinc-800"
       )}
     >
       <div className="flex-shrink-0">
-        {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : 
-         isActive ? <Play className="w-5 h-5 text-emerald-500 fill-emerald-500" /> :
-         <Circle className="w-5 h-5 text-zinc-700 group-hover:text-zinc-500" />}
+        {isCompleted ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5 text-zinc-700 group-hover:text-zinc-500" />}
       </div>
       <div className="flex-1">
-        <h4 className={cn("text-sm font-medium", isCompleted ? "text-zinc-500 line-through" : isActive ? "text-emerald-50" : "text-zinc-300")}>{title}</h4>
+        <h4 className={cn("text-sm font-medium", isCompleted ? "text-zinc-500 line-through" : "text-zinc-300")}>{goal.title}</h4>
+        {goal.duration_minutes && !isCompleted && <p className="text-xs text-zinc-600 mt-1 flex items-center gap-1"><Clock className="w-3 h-3" /> {goal.duration_minutes}m allocated</p>}
       </div>
-      {points && (
+      
+      {!isFriend && !isCompleted && onStart && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onStart(); }}
+          className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 text-xs font-medium rounded hover:bg-emerald-500/20 flex items-center gap-1 transition-all"
+        >
+          <Play className="w-3 h-3" /> Start
+        </button>
+      )}
+
+      {goal.priority && (
         <div className={cn("text-xs font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-800", 
           isCompleted ? "text-emerald-500/70" : 
-          points === "P1" ? "text-red-400" :
-          points === "P2" ? "text-amber-400" : "text-blue-400"
+          goal.priority === "P1" ? "text-red-400" :
+          goal.priority === "P2" ? "text-amber-400" : "text-blue-400"
         )}>
-          {points}
+          {goal.priority}
         </div>
       )}
     </div>
