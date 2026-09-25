@@ -136,6 +136,13 @@ export default function Home() {
     updateDoc(doc(db, 'goals', id), {
       is_completed: !currentStatus
     }).catch(err => console.warn(err));
+
+    // If we are marking the currently active timer goal as completed, stop the timer
+    if (!currentStatus && activeGoal?.id === id) {
+      setTimerActive(false);
+      setActiveGoal(null);
+      setTimeLeft(25 * 60);
+    }
   };
 
   if (loading) {
@@ -147,6 +154,19 @@ export default function Home() {
   const filteredMyGoals = myGoals.filter(g => (g.tier || 'daily') === activeTab);
   const filteredFriendGoals = friendGoals.filter(g => (g.tier || 'daily') === activeTab);
 
+  const calculatePoints = (goals: any[]) => goals.filter(g => g.is_completed).reduce((acc, g) => {
+    if (g.priority === 'P1') return acc + 30;
+    if (g.priority === 'P2') return acc + 20;
+    if (g.priority === 'P3') return acc + 10;
+    return acc + 20;
+  }, 0);
+
+  const myPoints = calculatePoints(myGoals);
+  const friendPoints = calculatePoints(friendGoals);
+
+  const friendCompletedCount = friendGoals.filter(g => g.is_completed && (g.tier || 'daily') === 'daily').length;
+  const friendStatusText = friendCompletedCount > 0 ? `Crushed ${friendCompletedCount} daily goals` : "Offline / Resting";
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-zinc-100 overflow-hidden font-sans">
       <header className="h-16 border-b border-zinc-900 bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-50">
@@ -154,7 +174,7 @@ export default function Home() {
           user={myProfile?.username?.[0]?.toUpperCase() || currentUser?.[0]?.toUpperCase() || "A"} 
           name={myProfile?.username || currentUser || "Me"} 
           time="Local" 
-          points={0} 
+          points={myPoints} 
           streak={0} 
         />
         
@@ -176,7 +196,7 @@ export default function Home() {
             user={friendProfile?.username?.[0]?.toUpperCase() || "?"} 
             name={friendProfile?.username || "Waiting for Friend"} 
             time="Remote" 
-            points={0} 
+            points={friendPoints} 
             streak={0} 
             align="right" 
           />
@@ -256,7 +276,7 @@ export default function Home() {
                     onChange={(e) => setNewGoalDuration(e.target.value)}
                     placeholder="25"
                     min="1"
-                    className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                    className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
                   />
                   <span className="absolute right-3 top-2.5 text-sm text-zinc-500 pointer-events-none">m</span>
                 </div>
@@ -293,7 +313,7 @@ export default function Home() {
               </div>
               <div className="flex justify-between items-end">
                 <div>
-                  <h3 className="text-xl font-semibold mb-1 text-zinc-300">Offline / Resting</h3>
+                  <h3 className={cn("text-xl font-semibold mb-1", friendCompletedCount > 0 ? "text-emerald-500" : "text-zinc-300")}>{friendStatusText}</h3>
                 </div>
               </div>
             </div>
