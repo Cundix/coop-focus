@@ -26,14 +26,25 @@ export default function LoginPage() {
     localStorage.setItem('coop_username', normalizedUsername)
 
     // Save profile to Firestore (fire and forget)
-    setDoc(doc(db, 'profiles', normalizedUsername), {
-      username: normalizedUsername,
-      created_at: new Date().toISOString()
-    }, { merge: true }).catch(err => {
-      console.warn("Could not save to firestore, maybe rules aren't set yet?", err)
-    })
+    try {
+      setDoc(doc(db, 'profiles', normalizedUsername), {
+        username: normalizedUsername,
+        created_at: new Date().toISOString()
+      }, { merge: true }).catch(err => {
+        console.warn("Could not save to firestore, maybe rules aren't set yet?", err)
+      })
+    } catch (err) {
+      console.warn("Firestore sync failed synchronously", err)
+    }
 
     router.push('/')
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleLogin()
+    }
   }
 
   return (
@@ -51,6 +62,7 @@ export default function LoginPage() {
             type="text"
             value={username}
             onChange={e => setUsername(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="e.g. Alex"
             required
             autoFocus
