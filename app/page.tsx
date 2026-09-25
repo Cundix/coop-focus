@@ -17,13 +17,13 @@ export default function Home() {
   
   // New States
   const [newGoalTitle, setNewGoalTitle] = useState("");
-  const [newGoalDuration, setNewGoalDuration] = useState("25");
+  const [newGoalDuration, setNewGoalDuration] = useState("60");
   const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly">("daily");
   const [showFriend, setShowFriend] = useState(true);
   
   const [activeGoal, setActiveGoal] = useState<any>(null);
   const [timerActive, setTimerActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [timeLeft, setTimeLeft] = useState(60 * 60);
 
   const router = useRouter();
 
@@ -92,13 +92,13 @@ export default function Home() {
   }, [timerActive, timeLeft, activeGoal]);
 
   const toggleTimer = () => {
-    if (timeLeft === 0) setTimeLeft((activeGoal?.duration_minutes || 25) * 60);
+    if (timeLeft === 0) setTimeLeft((activeGoal?.duration_minutes || 60) * 60);
     setTimerActive(!timerActive);
   };
 
   const startGoalTimer = (goal: any) => {
     setActiveGoal(goal);
-    setTimeLeft((goal.duration_minutes || 25) * 60);
+    setTimeLeft((goal.duration_minutes || 60) * 60);
     setTimerActive(true);
   };
 
@@ -117,10 +117,14 @@ export default function Home() {
     e.preventDefault();
     if (!currentUser || !newGoalTitle.trim()) return;
     
+    let duration = parseInt(newGoalDuration) || 60;
+    if (duration < 20) duration = 20;
+    if (duration > 180) duration = 180;
+
     addDoc(collection(db, 'goals'), {
       user_id: currentUser,
       title: newGoalTitle.trim(),
-      duration_minutes: parseInt(newGoalDuration) || 25,
+      duration_minutes: duration,
       tier: activeTab,
       priority: 'P2',
       is_completed: false,
@@ -141,7 +145,7 @@ export default function Home() {
     if (!currentStatus && activeGoal?.id === id) {
       setTimerActive(false);
       setActiveGoal(null);
-      setTimeLeft(25 * 60);
+      setTimeLeft(60 * 60);
     }
   };
 
@@ -238,9 +242,9 @@ export default function Home() {
               >
                 {!activeGoal ? <><Clock className="w-4 h-4" /> Select an objective to begin</> : timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
               </button>
-              {(!timerActive && timeLeft < (activeGoal?.duration_minutes || 25) * 60) && (
+              {(!timerActive && timeLeft < (activeGoal?.duration_minutes || 60) * 60) && (
                 <button 
-                  onClick={() => setTimeLeft((activeGoal?.duration_minutes || 25) * 60)}
+                  onClick={() => setTimeLeft((activeGoal?.duration_minutes || 60) * 60)}
                   className="px-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 rounded-md text-sm font-medium transition-colors"
                 >
                   Reset
@@ -277,8 +281,9 @@ export default function Home() {
                     type="number" 
                     value={newGoalDuration}
                     onChange={(e) => setNewGoalDuration(e.target.value)}
-                    placeholder="25"
-                    min="1"
+                    placeholder="60"
+                    min="20"
+                    max="180"
                     className="w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
                   />
                   <span className="absolute right-3 top-2.5 text-sm text-zinc-500 pointer-events-none">m</span>
