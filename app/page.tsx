@@ -227,13 +227,16 @@ export default function Home() {
             <div className="flex gap-3 mt-6">
               <button 
                 onClick={toggleTimer}
+                disabled={!activeGoal}
                 className={cn("flex-1 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 border", 
-                  timerActive 
+                  !activeGoal
+                    ? "bg-zinc-900/50 text-zinc-600 border-zinc-800/50 cursor-not-allowed"
+                    : timerActive 
                     ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/20" 
                     : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/20"
                 )}
               >
-                {timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
+                {!activeGoal ? <><Clock className="w-4 h-4" /> Select an objective to begin</> : timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
               </button>
               {(!timerActive && timeLeft < (activeGoal?.duration_minutes || 25) * 60) && (
                 <button 
