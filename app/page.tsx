@@ -19,6 +19,9 @@ export default function Home() {
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly">("daily");
   const [showFriend, setShowFriend] = useState(true);
+  
+  const [timerActive, setTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
 
   const router = useRouter();
 
@@ -70,6 +73,30 @@ export default function Home() {
       return () => unsubFriendGoals();
     }
   }, [friendProfile?.id]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && timerActive) {
+      setTimerActive(false);
+      // Optional: Play a sound here
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft]);
+
+  const toggleTimer = () => {
+    if (timeLeft === 0) setTimeLeft(25 * 60);
+    setTimerActive(!timerActive);
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const handleSignOut = () => {
     localStorage.removeItem('coop_username');
@@ -159,17 +186,32 @@ export default function Home() {
               <div>
                 <h3 className="text-2xl font-semibold mb-1">Deep Work Phase</h3>
                 <p className="text-zinc-500 text-sm flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> Ready to start
+                  <Clock className="w-4 h-4" /> {timerActive ? "In progress..." : "Ready to start"}
                 </p>
               </div>
               <div className="text-4xl font-mono font-light text-zinc-500">
-                00:00:00
+                {formatTime(timeLeft)}
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                <Play className="w-4 h-4" /> Start Block
+              <button 
+                onClick={toggleTimer}
+                className={cn("flex-1 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 border", 
+                  timerActive 
+                    ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/20" 
+                    : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/20"
+                )}
+              >
+                {timerActive ? <><Clock className="w-4 h-4" /> Pause Block</> : <><Play className="w-4 h-4" /> Start Block</>}
               </button>
+              {(!timerActive && timeLeft < 25 * 60) && (
+                <button 
+                  onClick={() => setTimeLeft(25 * 60)}
+                  className="px-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 rounded-md text-sm font-medium transition-colors"
+                >
+                  Reset
+                </button>
+              )}
             </div>
           </div>
 
