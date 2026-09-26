@@ -5,7 +5,7 @@ import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2,
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, limit, documentId } from "firebase/firestore";
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -40,12 +40,12 @@ export default function Home() {
 
     const profilesRef = collection(db, 'profiles');
     
-    const qMyProfile = query(profilesRef, where('__name__', '==', savedUser));
+    const qMyProfile = query(profilesRef, where(documentId(), '==', savedUser));
     const unsubMyProfile = onSnapshot(qMyProfile, (snap) => {
       if (!snap.empty) setMyProfile(snap.docs[0].data());
     });
 
-    const qFriendProfile = query(profilesRef, where('__name__', '!=', savedUser), limit(1));
+    const qFriendProfile = query(profilesRef, where(documentId(), '!=', savedUser), limit(1));
     const unsubFriendProfile = onSnapshot(qFriendProfile, (snap) => {
       if (!snap.empty) {
         setFriendProfile({ id: snap.docs[0].id, ...snap.docs[0].data() });
