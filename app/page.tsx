@@ -316,17 +316,12 @@ export default function Home() {
                 )}
 
                 {activeTab !== 'monthly' && (
-                  <select 
+                  <CustomSelect
                     value={newGoalParentId}
-                    onChange={(e) => setNewGoalParentId(e.target.value)}
-                    className={cn("w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all", newGoalParentId ? "text-zinc-100" : "text-zinc-700")}
-                    required
-                  >
-                    <option value="" disabled>Link to a {activeTab === 'daily' ? 'weekly' : 'monthly'} objective (Required)</option>
-                    {availableParents.map(p => (
-                      <option key={p.id} value={p.id} className="text-zinc-300">{p.title}</option>
-                    ))}
-                  </select>
+                    onChange={setNewGoalParentId}
+                    options={availableParents}
+                    placeholder={`Link to a ${activeTab === 'daily' ? 'weekly' : 'monthly'} objective (Required)`}
+                  />
                 )}
 
                 <div className="flex justify-between items-center mt-1">
@@ -505,6 +500,47 @@ function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle }: { goal: a
         )}>
           {goal.priority}
         </div>
+      )}
+    </div>
+  );
+}
+
+function CustomSelect({ value, onChange, options, placeholder }: { value: string, onChange: (val: string) => void, options: { id: string, title: string }[], placeholder: string }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(o => o.id === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn("w-full bg-zinc-950/50 border border-zinc-900 rounded-md px-4 py-2.5 text-sm outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all text-left flex justify-between items-center", value ? "text-zinc-100" : "text-zinc-700")}
+      >
+        <span className="truncate">{selected ? selected.title : placeholder}</span>
+        <svg className={cn("w-4 h-4 transition-transform", open ? "rotate-180 text-emerald-500" : "text-zinc-500")} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full mt-2 w-full bg-[#0a0a0a] border border-zinc-800 rounded-md shadow-2xl z-50 py-1.5 max-h-60 overflow-auto">
+            {options.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-zinc-500 italic">No objectives available to link.</div>
+            ) : (
+              options.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => { onChange(opt.id); setOpen(false); }}
+                  className={cn("w-full text-left px-4 py-2 text-sm hover:bg-zinc-800/80 transition-colors flex items-center justify-between", value === opt.id ? "text-emerald-500 bg-zinc-900/50 font-medium" : "text-zinc-300")}
+                >
+                  <span className="truncate">{opt.title}</span>
+                  {value === opt.id && <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   );
