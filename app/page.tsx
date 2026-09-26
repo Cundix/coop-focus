@@ -26,6 +26,8 @@ export default function Home() {
   const [activeGoal, setActiveGoal] = useState<any>(null);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60 * 60);
+  
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const router = useRouter();
 
@@ -77,6 +79,20 @@ export default function Home() {
       return () => unsubFriendGoals();
     }
   }, [friendProfile?.id]);
+
+  useEffect(() => {
+    if (myProfile && currentUser) {
+      const myTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (myProfile.timezone !== myTz) {
+        updateDoc(doc(db, 'profiles', currentUser), { timezone: myTz }).catch(() => {});
+      }
+    }
+  }, [myProfile?.timezone, currentUser]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -200,13 +216,22 @@ export default function Home() {
 
   const isFormValid = newGoalTitle.trim() && (activeTab === 'monthly' || newGoalParentId);
 
+  const formatUserTime = (timezone?: string) => {
+    if (!timezone) return "Unknown time";
+    try {
+      return currentTime.toLocaleTimeString([], { timeZone: timezone, hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return "Unknown time";
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-zinc-100 overflow-hidden font-sans">
       <header className="h-16 border-b border-zinc-900 bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-50">
         <UserScore 
           user={myProfile?.username?.[0]?.toUpperCase() || currentUser?.[0]?.toUpperCase() || "A"} 
           name={myProfile?.username || currentUser || "Me"} 
-          time="Local" 
+          time={myProfile?.timezone ? formatUserTime(myProfile?.timezone) : "Local"} 
           points={myPoints} 
           streak={0} 
         />
@@ -228,7 +253,7 @@ export default function Home() {
           <UserScore 
             user={friendProfile?.username?.[0]?.toUpperCase() || "?"} 
             name={friendProfile?.username || "Waiting for Friend"} 
-            time="Remote" 
+            time={friendProfile?.timezone ? formatUserTime(friendProfile?.timezone) : "Remote"} 
             points={friendPoints} 
             streak={0} 
             align="right" 
