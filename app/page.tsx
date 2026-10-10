@@ -166,7 +166,6 @@ export default function Home() {
   const handleAddGoal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !newGoalTitle.trim()) return;
-    if ((activeTab === 'weekly' || activeTab === 'daily') && !newGoalParentId) return;
     
     const payload: any = {
       user_id: currentUser,
@@ -182,10 +181,10 @@ export default function Home() {
       if (duration < 20) duration = 20;
       if (duration > 180) duration = 180;
       payload.duration_minutes = duration;
-      payload.parent_id = newGoalParentId;
+      if (newGoalParentId) payload.parent_id = newGoalParentId;
     } else if (activeTab === 'weekly') {
       payload.description = newGoalDesc.trim();
-      payload.parent_id = newGoalParentId;
+      if (newGoalParentId) payload.parent_id = newGoalParentId;
     } else if (activeTab === 'monthly') {
       payload.description = newGoalDesc.trim();
     }
@@ -240,7 +239,7 @@ export default function Home() {
   const isFriendOnline = friendProfile?.last_active ? (new Date().getTime() - new Date(friendProfile.last_active).getTime() < 120000) : false;
   const friendCompletedCount = friendGoals.filter(g => g.is_completed && (g.tier || 'daily') === 'daily').length;
 
-  const isFormValid = newGoalTitle.trim() && (activeTab === 'monthly' || newGoalParentId);
+  const isFormValid = newGoalTitle.trim().length > 0;
 
   const formatUserTime = (timezone?: string) => {
     if (!timezone) return "Unknown time";
@@ -371,7 +370,7 @@ export default function Home() {
                     value={newGoalParentId}
                     onChange={setNewGoalParentId}
                     options={availableParents}
-                    placeholder={`Link to a ${activeTab === 'daily' ? 'weekly' : 'monthly'} objective (Required)`}
+                    placeholder={`Link to a ${activeTab === 'daily' ? 'weekly' : 'monthly'} objective (Optional)`}
                   />
                 )}
 
