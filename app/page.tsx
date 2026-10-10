@@ -90,6 +90,32 @@ export default function Home() {
   }, [myProfile?.timezone, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    
+    const updatePresence = () => {
+      updateDoc(doc(db, 'profiles', currentUser), { 
+        last_active: new Date().toISOString() 
+      }).catch(console.warn);
+    };
+
+    updatePresence();
+    const interval = setInterval(updatePresence, 60000); // ping every 1 minute
+    
+    // Attempt to set offline immediately when closing window
+    const handleUnload = () => {
+      updateDoc(doc(db, 'profiles', currentUser), { 
+        last_active: new Date(Date.now() - 120000).toISOString() // set to 2 mins ago to appear offline immediately
+      }).catch(() => {});
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -211,8 +237,8 @@ export default function Home() {
   const myPoints = calculatePoints(myGoals);
   const friendPoints = calculatePoints(friendGoals);
 
+  const isFriendOnline = friendProfile?.last_active ? (new Date().getTime() - new Date(friendProfile.last_active).getTime() < 120000) : false;
   const friendCompletedCount = friendGoals.filter(g => g.is_completed && (g.tier || 'daily') === 'daily').length;
-  const friendStatusText = friendCompletedCount > 0 ? `Crushed ${friendCompletedCount} daily goals` : "Offline / Resting";
 
   const isFormValid = newGoalTitle.trim() && (activeTab === 'monthly' || newGoalParentId);
 
@@ -400,7 +426,24 @@ export default function Home() {
               </div>
               <div className="flex justify-between items-end">
                 <div>
-                  <h3 className={cn("text-xl font-semibold mb-1", friendCompletedCount > 0 ? "text-emerald-500" : "text-zinc-300")}>{friendStatusText}</h3>
+                  <h3 className="text-xl font-semibold mb-1 flex items-center gap-3">
+                    {isFriendOnline ? (
+                      <span className="flex items-center gap-2 text-emerald-500">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                        </span>
+                        Online
+                      </span>
+                    ) : (
+                      <span className="text-zinc-500">Offline / Resting</span>
+                    )}
+                    {friendCompletedCount > 0 && (
+                      <span className="text-zinc-400 text-sm font-normal">
+                        • Crushed {friendCompletedCount} daily goals
+                      </span>
+                    )}
+                  </h3>
                 </div>
               </div>
             </div>
