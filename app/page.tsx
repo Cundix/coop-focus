@@ -1,11 +1,12 @@
 'use client'
 
 import { cn } from "@/lib/utils";
-import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2, EyeOff, Eye, SquareTerminal } from "lucide-react";
+import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2, EyeOff, Eye, SquareTerminal, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, limit, documentId } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, limit, documentId } from "firebase/firestore";
+import { endOfDay, endOfWeek, endOfMonth, formatDistanceToNow, isPast } from "date-fns";
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -167,13 +168,20 @@ export default function Home() {
     e.preventDefault();
     if (!currentUser || !newGoalTitle.trim()) return;
     
+    const now = new Date();
+    let deadline: Date;
+    if (activeTab === 'daily') deadline = endOfDay(now);
+    else if (activeTab === 'weekly') deadline = endOfWeek(now, { weekStartsOn: 1 });
+    else deadline = endOfMonth(now);
+
     const payload: any = {
       user_id: currentUser,
       title: newGoalTitle.trim(),
       tier: activeTab,
       priority: 'P2',
       is_completed: false,
-      created_at: new Date().toISOString()
+      created_at: now.toISOString(),
+      deadline: deadline.toISOString()
     };
 
     if (activeTab === 'daily') {
@@ -196,6 +204,17 @@ export default function Home() {
     setNewGoalTitle("");
     setNewGoalDesc("");
     setNewGoalParentId("");
+  };
+
+  const handleDeleteGoal = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this objective?")) {
+      deleteDoc(doc(db, 'goals', id)).catch(err => console.warn(err));
+      if (activeGoal?.id === id) {
+        setTimerActive(false);
+        setActiveGoal(null);
+        setTimeLeft(60 * 60);
+      }
+    }
   };
 
   const toggleGoal = (id: string, currentStatus: boolean) => {
@@ -403,6 +422,7 @@ export default function Home() {
                   allGoals={myGoals}
                   onStart={() => startGoalTimer(goal)}
                   onToggle={() => toggleGoal(goal.id, goal.is_completed)}
+                  onDelete={() => handleDeleteGoal(goal.id)}
                 />
               )) : (
                 <p className="text-zinc-700 text-sm text-center mt-10">No {activeTab} objectives set yet.</p>
@@ -510,7 +530,7 @@ function UserScore({ user, name, time, points, streak, crown = false, align = "l
   );
 }
 
-function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle }: { goal: any, allGoals: any[], isFriend?: boolean, onStart?: () => void, onToggle?: () => void }) {
+function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle, onDelete }: { goal: any, allGoals: any[], isFriend?: boolean, onStart?: () => void, onToggle?: () => void, onDelete?: () => void }) {
   const isCompleted = goal.is_completed;
   const parentGoal = goal.parent_id ? allGoals.find(g => g.id === goal.parent_id) : null;
   const isDaily = (goal.tier || 'daily') === 'daily';
@@ -547,6 +567,13 @@ function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle }: { goal: a
           {goal.duration_minutes && !isCompleted && isDaily && (
             <span className="text-xs text-zinc-600 flex items-center gap-1"><Clock className="w-3 h-3" /> {goal.duration_minutes}m</span>
           )}
+          {goal.deadline && (
+            <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase tracking-widest truncate border", 
+              isPast(new Date(goal.deadline)) && !isCompleted ? "text-red-500 border-red-500/20 bg-red-500/5" : "text-zinc-500 border-zinc-800 bg-zinc-900/50"
+            )}>
+              {isPast(new Date(goal.deadline)) && !isCompleted ? 'Expired' : formatDistanceToNow(new Date(goal.deadline), { addSuffix: true })}
+            </span>
+          )}
         </div>
       </div>
       
@@ -556,6 +583,16 @@ function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle }: { goal: a
           className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 text-xs font-medium rounded hover:bg-emerald-500/20 flex items-center gap-1 transition-all flex-shrink-0"
         >
           <Play className="w-3 h-3" /> Start
+        </button>
+      )}
+
+      {!isFriend && onDelete && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all flex-shrink-0 ml-1"
+          title="Delete Objective"
+        >
+          <Trash2 className="w-4 h-4" />
         </button>
       )}
 
