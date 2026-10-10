@@ -121,6 +121,19 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  const syncTimerState = (active: boolean, goal: any, time: number) => {
+    if (!currentUser) return;
+    updateDoc(doc(db, 'profiles', currentUser), {
+      active_timer: {
+        goal_id: goal?.id || null,
+        goal_title: goal?.title || null,
+        time_left: time,
+        is_active: active,
+        updated_at: new Date().toISOString()
+      }
+    }).catch(console.warn);
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timerActive && timeLeft > 0) {
@@ -129,12 +142,13 @@ export default function Home() {
       }, 1000);
     } else if (timeLeft === 0 && timerActive) {
       setTimerActive(false);
+      syncTimerState(false, activeGoal, 0);
       if (activeGoal) {
         toggleGoal(activeGoal.id, false); // automatically mark complete!
       }
     }
     return () => clearInterval(interval);
-  }, [timerActive, timeLeft, activeGoal]);
+  }, [timerActive, timeLeft, activeGoal, currentUser]);
 
   // Reset parent selection when changing tabs
   useEffect(() => {
@@ -142,15 +156,20 @@ export default function Home() {
   }, [activeTab]);
 
   const toggleTimer = () => {
-    if (timeLeft === 0) setTimeLeft((activeGoal?.duration_minutes || 60) * 60);
+    let newTimeLeft = timeLeft;
+    if (timeLeft === 0) newTimeLeft = (activeGoal?.duration_minutes || 60) * 60;
+    setTimeLeft(newTimeLeft);
     setTimerActive(!timerActive);
+    syncTimerState(!timerActive, activeGoal, newTimeLeft);
   };
 
   const startGoalTimer = (goal: any) => {
     if (goal.tier !== 'daily') return;
+    const newTime = (goal.duration_minutes || 60) * 60;
     setActiveGoal(goal);
-    setTimeLeft((goal.duration_minutes || 60) * 60);
+    setTimeLeft(newTime);
     setTimerActive(true);
+    syncTimerState(true, goal, newTime);
   };
 
   const formatTime = (seconds: number) => {
@@ -213,6 +232,7 @@ export default function Home() {
         setTimerActive(false);
         setActiveGoal(null);
         setTimeLeft(60 * 60);
+        syncTimerState(false, null, 60 * 60);
       }
     }
   };
@@ -227,6 +247,7 @@ export default function Home() {
       setTimerActive(false);
       setActiveGoal(null);
       setTimeLeft(60 * 60);
+      syncTimerState(false, null, 60 * 60);
     }
   };
 
@@ -342,7 +363,11 @@ export default function Home() {
               </button>
               {(!timerActive && timeLeft < (activeGoal?.duration_minutes || 60) * 60) && (
                 <button 
-                  onClick={() => setTimeLeft((activeGoal?.duration_minutes || 60) * 60)}
+                  onClick={() => {
+                    const newTime = (activeGoal?.duration_minutes || 60) * 60;
+                    setTimeLeft(newTime);
+                    syncTimerState(false, activeGoal, newTime);
+                  }}
                   className="px-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 rounded-md text-sm font-medium transition-colors"
                 >
                   Reset
@@ -463,6 +488,9 @@ export default function Home() {
                       </span>
                     )}
                   </h3>
+                  {friendProfile?.active_timer && isFriendOnline && (
+                    <FriendTimerDisplay activeTimer={friendProfile.active_timer} />
+                  )}
                 </div>
               </div>
             </div>
@@ -646,6 +674,48 @@ function CustomSelect({ value, onChange, options, placeholder }: { value: string
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function FriendTimerDisplay({ activeTimer }: { activeTimer: any }) {
+  const [displayTime, setDisplayTime] = useState(activeTimer?.time_left || 0);
+
+  useEffect(() => {
+    setDisplayTime(activeTimer?.time_left || 0);
+    if (!activeTimer?.is_active) return;
+    
+    // calculate actual time left based on the time it was updated in Firestore
+    const start = new Date(activeTimer.updated_at).getTime();
+    
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const elapsed = Math.floor((now - start) / 1000);
+      const remaining = Math.max(0, activeTimer.time_left - elapsed);
+      setDisplayTime(remaining);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeTimer]);
+
+  if (!activeTimer || (!activeTimer.is_active && activeTimer.time_left === 0)) return null;
+
+  const m = Math.floor(displayTime / 60);
+  const s = displayTime % 60;
+  const formatted = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+  return (
+    <div className="mt-2 p-3 rounded-lg border border-zinc-800 bg-zinc-900/30 flex justify-between items-center max-w-sm">
+      <div className="flex-1 min-w-0 mr-4">
+        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+          {activeTimer.is_active ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> : <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+          {activeTimer.is_active ? "Working on" : "Paused"}
+        </p>
+        <p className="text-sm font-medium text-zinc-300 truncate">{activeTimer.goal_title}</p>
+      </div>
+      <div className={cn("text-xl font-mono flex-shrink-0", activeTimer.is_active ? "text-emerald-500" : "text-amber-500")}>
+        {formatted}
+      </div>
     </div>
   );
 }
