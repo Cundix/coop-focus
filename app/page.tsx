@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from "@/lib/utils";
-import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2, EyeOff, Eye, SquareTerminal, Trash2 } from "lucide-react";
+import { Clock, Flame, Crown, Plus, CheckCircle2, Circle, Trophy, Play, Loader2, EyeOff, Eye, SquareTerminal, Trash2, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/config";
@@ -23,6 +23,8 @@ export default function Home() {
   const [newGoalParentId, setNewGoalParentId] = useState("");
   const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly">("daily");
   const [showFriend, setShowFriend] = useState(true);
+  const [showCompletedMy, setShowCompletedMy] = useState(true);
+  const [showCompletedFriend, setShowCompletedFriend] = useState(true);
   
   const [activeGoal, setActiveGoal] = useState<any>(null);
   const [timerActive, setTimerActive] = useState(false);
@@ -258,7 +260,12 @@ export default function Home() {
   }
 
   const filteredMyGoals = myGoals.filter(g => (g.tier || 'daily') === activeTab);
+  const activeMyGoals = filteredMyGoals.filter(g => !g.is_completed);
+  const completedMyGoals = filteredMyGoals.filter(g => g.is_completed);
+
   const filteredFriendGoals = friendGoals.filter(g => (g.tier || 'daily') === activeTab);
+  const activeFriendGoals = filteredFriendGoals.filter(g => !g.is_completed);
+  const completedFriendGoals = filteredFriendGoals.filter(g => g.is_completed);
 
   const availableParents = activeTab === 'weekly' 
     ? myGoals.filter(g => (g.tier || 'daily') === 'monthly')
@@ -440,17 +447,59 @@ export default function Home() {
                 </div>
               </form>
 
-              {filteredMyGoals.length > 0 ? filteredMyGoals.map(goal => (
-                <ScheduleItem 
-                  key={goal.id}
-                  goal={goal}
-                  allGoals={myGoals}
-                  onStart={() => startGoalTimer(goal)}
-                  onToggle={() => toggleGoal(goal.id, goal.is_completed)}
-                  onDelete={() => handleDeleteGoal(goal.id)}
-                />
-              )) : (
+              {activeMyGoals.length > 0 ? (
+                <div className="space-y-3">
+                  {activeMyGoals.map(goal => (
+                    <ScheduleItem 
+                      key={goal.id}
+                      goal={goal}
+                      allGoals={myGoals}
+                      onStart={() => startGoalTimer(goal)}
+                      onToggle={() => toggleGoal(goal.id, goal.is_completed)}
+                      onDelete={() => handleDeleteGoal(goal.id)}
+                    />
+                  ))}
+                </div>
+              ) : completedMyGoals.length > 0 ? (
+                <div className="py-8 px-4 text-center border border-dashed border-zinc-900/80 rounded-xl bg-zinc-950/20">
+                  <p className="text-xs font-mono text-zinc-500">All {activeTab} objectives completed! 🎯</p>
+                </div>
+              ) : (
                 <p className="text-zinc-700 text-sm text-center mt-10">No {activeTab} objectives set yet.</p>
+              )}
+
+              {completedMyGoals.length > 0 && (
+                <div className="pt-6 border-t border-zinc-900/80 mt-6">
+                  <button 
+                    type="button"
+                    onClick={() => setShowCompletedMy(prev => !prev)}
+                    className="flex items-center justify-between w-full text-xs font-mono text-zinc-500 uppercase tracking-wider mb-3 hover:text-zinc-300 transition-colors group cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      Completed ({completedMyGoals.length})
+                    </span>
+                    <span className="text-zinc-600 group-hover:text-zinc-400 flex items-center gap-1 text-[11px] lowercase tracking-normal">
+                      {showCompletedMy ? "hide" : "show"}
+                      <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", !showCompletedMy && "-rotate-90")} />
+                    </span>
+                  </button>
+
+                  {showCompletedMy && (
+                    <div className="space-y-3">
+                      {completedMyGoals.map(goal => (
+                        <ScheduleItem 
+                          key={goal.id}
+                          goal={goal}
+                          allGoals={myGoals}
+                          onStart={() => startGoalTimer(goal)}
+                          onToggle={() => toggleGoal(goal.id, goal.is_completed)}
+                          onDelete={() => handleDeleteGoal(goal.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -503,15 +552,55 @@ export default function Home() {
               </div>
               
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {filteredFriendGoals.length > 0 ? filteredFriendGoals.map(goal => (
-                  <ScheduleItem 
-                    key={goal.id}
-                    goal={goal}
-                    allGoals={friendGoals}
-                    isFriend
-                  />
-                )) : (
+                {activeFriendGoals.length > 0 ? (
+                  <div className="space-y-3">
+                    {activeFriendGoals.map(goal => (
+                      <ScheduleItem 
+                        key={goal.id}
+                        goal={goal}
+                        allGoals={friendGoals}
+                        isFriend
+                      />
+                    ))}
+                  </div>
+                ) : completedFriendGoals.length > 0 ? (
+                  <div className="py-8 px-4 text-center border border-dashed border-zinc-900/80 rounded-xl bg-zinc-950/20">
+                    <p className="text-xs font-mono text-zinc-500">All {activeTab} objectives completed! 🎯</p>
+                  </div>
+                ) : (
                   <p className="text-zinc-800 text-sm text-center mt-10">Your friend hasn't added any {activeTab} objectives.</p>
+                )}
+
+                {completedFriendGoals.length > 0 && (
+                  <div className="pt-6 border-t border-zinc-900/80 mt-6">
+                    <button 
+                      type="button"
+                      onClick={() => setShowCompletedFriend(prev => !prev)}
+                      className="flex items-center justify-between w-full text-xs font-mono text-zinc-500 uppercase tracking-wider mb-3 hover:text-zinc-300 transition-colors group cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Completed ({completedFriendGoals.length})
+                      </span>
+                      <span className="text-zinc-600 group-hover:text-zinc-400 flex items-center gap-1 text-[11px] lowercase tracking-normal">
+                        {showCompletedFriend ? "hide" : "show"}
+                        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", !showCompletedFriend && "-rotate-90")} />
+                      </span>
+                    </button>
+
+                    {showCompletedFriend && (
+                      <div className="space-y-3">
+                        {completedFriendGoals.map(goal => (
+                          <ScheduleItem 
+                            key={goal.id}
+                            goal={goal}
+                            allGoals={friendGoals}
+                            isFriend
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -569,7 +658,7 @@ function ScheduleItem({ goal, allGoals, isFriend, onStart, onToggle, onDelete }:
       className={cn(
         "group flex items-start gap-4 p-4 rounded-xl border transition-all",
         onToggle && "cursor-pointer",
-        "bg-zinc-950/50 border-zinc-900/50 hover:border-zinc-800"
+        isCompleted ? "bg-zinc-950/20 border-zinc-900/40 opacity-70 hover:opacity-100" : "bg-zinc-950/50 border-zinc-900/50 hover:border-zinc-800"
       )}
     >
       <div className="flex-shrink-0 mt-0.5">
